@@ -48,7 +48,9 @@ src/
     agent_api.py           API Gateway HTTP API for the agent console
     connect_payment.py     Amazon Connect flow Lambda (lookup / charge / cancel)
     stream_archiver.py     DynamoDB Streams → S3 for analytics
-local/                     FastAPI simulator; /api/* calls the real agent_api Lambda handler
+  server.py                FastAPI simulator (Vercel entrypoint); /api/* calls the real agent_api handler
+local/server.py            launcher for src/server.py
+app.py                     Vercel entrypoint when Root Directory is the repo root
 infra/template.yaml        AWS SAM: KMS, DynamoDB, S3, HTTP API + JWT, Lambdas, Connect wiring, alarm
 tests/
 docs/
