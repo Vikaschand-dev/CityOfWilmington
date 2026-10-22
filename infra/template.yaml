@@ -1,0 +1,300 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  City of Wilmington 311 - secure in-call payment for special trash pickup (Accelance POC).
+  Agent API + Amazon Connect payment Lambda + DynamoDB + S3 archive. No cardholder data is stored.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, test, prod]
+    Default: dev
+  PaymentGateway:
+    Type: String
+    AllowedValues: [mock, authorizenet]
+    Default: mock
+  GatewaySecretArn:
+    Type: String
+    Default: ""
+    Description: Secrets Manager ARN holding {"api_login_id","transaction_key"} (blank for mock)
+  ConnectInstanceArn:
+    Type: String
+    Description: Amazon Connect instance that hosts the secure payment flow
+  ConnectPrivateKeySecretArn:
+    Type: String
+    Description: Secrets Manager ARN holding the PEM private key for Connect encrypted input
+  ConnectCertificateId:
+    Type: String
+    Description: Key id shown in Connect after uploading the public key/certificate
+  RingCentralSecretArn:
+    Type: String
+    Default: ""
+    Description: Secrets Manager ARN holding {"client_id","client_secret","jwt"} (blank = dry run)
+  PaymentIvrNumber:
+    Type: String
+    Description: E.164 DID of the Connect payment flow (RingCentral transfers callers here)
+  AgentReturnNumber:
+    Type: String
+    Description: E.164 number of the 311 RingCentral queue (Connect transfers callers back here)
+  JwtIssuer:
+    Type: String
+    Description: OIDC issuer for agent console auth (City Entra ID / Okta / Cognito)
+  JwtAudience:
+    Type: String
+    Description: OIDC audience / client id for the agent console
+
+Conditions:
+  HasGatewaySecret: !Not [!Equals [!Ref GatewaySecretArn, ""]]
+  HasRingCentralSecret: !Not [!Equals [!Ref RingCentralSecretArn, ""]]
+  IsProd: !Equals [!Ref Environment, prod]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    CodeUri: ../src/
+    MemorySize: 512
+    Timeout: 15
+    Tracing: Active
+    Environment:
+      Variables:
+        APP_ENV: !Ref Environment
+        REPOSITORY: dynamodb
+        TABLE_NAME: !Ref SessionsTable
+        PAYMENT_GATEWAY: !Ref PaymentGateway
+        GATEWAY_SECRET_ARN: !Ref GatewaySecretArn
+        INPUT_DECRYPTION: connect
+        CONNECT_PRIVATE_KEY_SECRET_ARN: !Ref ConnectPrivateKeySecretArn
+        CONNECT_CERTIFICATE_ID: !Ref ConnectCertificateId
+        PAYMENT_IVR_NUMBER: !Ref PaymentIvrNumber
+        AGENT_RETURN_NUMBER: !Ref AgentReturnNumber
+        RINGCENTRAL_SECRET_ARN: !Ref RingCentralSecretArn
+        RINGCENTRAL_DRY_RUN: !If [HasRingCentralSecret, "false", "true"]
+        RINGCENTRAL_SERVER: !If [IsProd, "https://platform.ringcentral.com", "https://platform.devtest.ringcentral.com"]
+
+Resources:
+  # ------------------------------------------------------------------ data
+  DataKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: cow311-payments data encryption key
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "cow311-payment-sessions-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: session_id, AttributeType: S }
+        - { AttributeName: payment_code, AttributeType: S }
+        - { AttributeName: caller_ani, AttributeType: S }
+        - { AttributeName: created_at, AttributeType: N }
+      KeySchema:
+        - { AttributeName: session_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: payment_code-index
+          KeySchema: [{ AttributeName: payment_code, KeyType: HASH }]
+          Projection: { ProjectionType: INCLUDE, NonKeyAttributes: [status, expires_at, created_at] }
+        - IndexName: caller_ani-index
+          KeySchema:
+            - { AttributeName: caller_ani, KeyType: HASH }
+            - { AttributeName: created_at, KeyType: RANGE }
+          Projection: { ProjectionType: INCLUDE, NonKeyAttributes: [status, expires_at] }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      StreamSpecification: { StreamViewType: NEW_IMAGE }
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref DataKey
+
+  ArchiveBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: aws:kms, KMSMasterKeyID: !Ref DataKey }
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: { Status: Enabled }
+      LifecycleConfiguration:
+        Rules:
+          - Id: archive-after-1y
+            Status: Enabled
+            Transitions: [{ StorageClass: GLACIER_IR, TransitionInDays: 365 }]
+
+  ArchiveBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArchiveBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt ArchiveBucket.Arn, !Sub "${ArchiveBucket.Arn}/*"]
+            Condition: { Bool: { "aws:SecureTransport": "false" } }
+
+  # ------------------------------------------------------------- agent API
+  AgentHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      Auth:
+        DefaultAuthorizer: AgentJwt
+        Authorizers:
+          AgentJwt:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Ref JwtIssuer
+              audience: [!Ref JwtAudience]
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 50
+        ThrottlingRateLimit: 20
+
+  AgentApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.agent_api.handler
+      Description: 311 agent console API - create/poll/cancel payment sessions
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SessionsTable }
+        - KMSDecryptPolicy: { KeyId: !Ref DataKey }
+        - Statement:
+            - Effect: Allow
+              Action: kms:GenerateDataKey
+              Resource: !GetAtt DataKey.Arn
+        - !If
+          - HasRingCentralSecret
+          - AWSSecretsManagerGetSecretValuePolicy: { SecretArn: !Ref RingCentralSecretArn }
+          - !Ref AWS::NoValue
+      Events:
+        Fees:      { Type: HttpApi, Properties: { ApiId: !Ref AgentHttpApi, Method: GET,  Path: /fees } }
+        Create:    { Type: HttpApi, Properties: { ApiId: !Ref AgentHttpApi, Method: POST, Path: /sessions } }
+        Get:       { Type: HttpApi, Properties: { ApiId: !Ref AgentHttpApi, Method: GET,  Path: "/sessions/{id}" } }
+        Cancel:    { Type: HttpApi, Properties: { ApiId: !Ref AgentHttpApi, Method: POST, Path: "/sessions/{id}/cancel" } }
+        Metrics:   { Type: HttpApi, Properties: { ApiId: !Ref AgentHttpApi, Method: GET,  Path: /metrics } }
+
+  # ---------------------------------------------- Connect payment Lambda (CDE)
+  ConnectPaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.connect_payment.handler
+      Description: Secure payment IVR back end - lookup + charge. In PCI scope.
+      Timeout: 8            # Connect waits max 8s for a Lambda response
+      ReservedConcurrentExecutions: 20
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SessionsTable }
+        - KMSDecryptPolicy: { KeyId: !Ref DataKey }
+        - Statement:
+            - Effect: Allow
+              Action: kms:GenerateDataKey
+              Resource: !GetAtt DataKey.Arn
+        - AWSSecretsManagerGetSecretValuePolicy: { SecretArn: !Ref ConnectPrivateKeySecretArn }
+        - !If
+          - HasGatewaySecret
+          - AWSSecretsManagerGetSecretValuePolicy: { SecretArn: !Ref GatewaySecretArn }
+          - !Ref AWS::NoValue
+
+  ConnectInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ConnectPaymentFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: connect.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Ref ConnectInstanceArn
+
+  ConnectLambdaAssociation:
+    Type: AWS::Connect::IntegrationAssociation
+    Properties:
+      InstanceId: !Ref ConnectInstanceArn
+      IntegrationType: LAMBDA_FUNCTION
+      IntegrationArn: !GetAtt ConnectPaymentFunction.Arn
+
+  # ------------------------------------------------------------ analytics
+  StreamArchiverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.stream_archiver.handler
+      Description: Archives finished payment sessions to S3 for Athena/QuickSight
+      Environment:
+        Variables:
+          ARCHIVE_BUCKET: !Ref ArchiveBucket
+      Policies:
+        - S3WritePolicy: { BucketName: !Ref ArchiveBucket }
+        - KMSDecryptPolicy: { KeyId: !Ref DataKey }
+        - Statement:
+            - Effect: Allow
+              Action: kms:GenerateDataKey
+              Resource: !GetAtt DataKey.Arn
+      Events:
+        Stream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt SessionsTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 50
+            MaximumRetryAttempts: 5
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"dynamodb":{"NewImage":{"status":{"S":["APPROVED","DECLINED","FAILED","CANCELLED","EXPIRED"]}}}}'
+
+  # --------------------------------------------------------------- alarms
+  PaymentFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Connect payment Lambda errors (possible outage of the payment line)
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref ConnectPaymentFunction }]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  AgentApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AgentApiFunction}"
+      RetentionInDays: 365
+  ConnectPaymentLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ConnectPaymentFunction}"
+      RetentionInDays: 365
+  StreamArchiverLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StreamArchiverFunction}"
+      RetentionInDays: 90
+
+Outputs:
+  AgentApiUrl:
+    Value: !Sub "https://${AgentHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+  ConnectPaymentFunctionArn:
+    Value: !GetAtt ConnectPaymentFunction.Arn
+  SessionsTableName:
+    Value: !Ref SessionsTable
+  ArchiveBucketName:
+    Value: !Ref ArchiveBucket

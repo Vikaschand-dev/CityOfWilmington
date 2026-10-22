@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wilmington 311 Secure Pay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f1ec; --bg-grad: #e9eef5; --panel: #ffffff; --panel-2: #f8f7f4; --ink: #14181f; --muted: #626b77;
+    --faint: #8b939d; --line: #e6e3dc; --line-strong: #d6d2c8;
+    --brand: #1453a8; --brand-2: #0b7a8a; --brand-ink: #ffffff; --brand-soft: #e8f0fb;
+    --ok: #13803b; --warn: #a1620a; --bad: #c42b2b; --info: #1453a8;
+    --ok-bg: #e5f4ea; --warn-bg: #fdf1d8; --bad-bg: #fbe9e8; --info-bg: #e8f0fb;
+    --shadow: 0 1px 2px rgba(20,24,31,.04), 0 8px 24px -12px rgba(20,24,31,.12);
+    --shadow-lg: 0 2px 4px rgba(20,24,31,.06), 0 24px 48px -20px rgba(20,24,31,.35);
+    --radius: 16px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1015; --bg-grad: #0f1624; --panel: #161a21; --panel-2: #1b2029; --ink: #e9ecf0; --muted: #9aa3ae;
+      --faint: #6f7883; --line: #262c36; --line-strong: #333b47;
+      --brand: #5b9dff; --brand-2: #3cc3d1; --brand-ink: #08101e; --brand-soft: #16243a;
+      --ok: #5fd08a; --warn: #f0b955; --bad: #ff8077; --info: #7ab0ff;
+      --ok-bg: #12291b; --warn-bg: #2f2511; --bad-bg: #331817; --info-bg: #142338;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+      --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 24px 48px -20px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1015; --bg-grad: #0f1624; --panel: #161a21; --panel-2: #1b2029; --ink: #e9ecf0; --muted: #9aa3ae;
+    --faint: #6f7883; --line: #262c36; --line-strong: #333b47;
+    --brand: #5b9dff; --brand-2: #3cc3d1; --brand-ink: #08101e; --brand-soft: #16243a;
+    --ok: #5fd08a; --warn: #f0b955; --bad: #ff8077; --info: #7ab0ff;
+    --ok-bg: #12291b; --warn-bg: #2f2511; --bad-bg: #331817; --info-bg: #142338;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 24px 48px -20px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink);
+    background: radial-gradient(1200px 600px at 85% -10%, var(--bg-grad), transparent 70%), var(--bg);
+    font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2;
+          stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- top bar ---------- */
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 18px 28px; max-width: 1560px; margin: 0 auto; }
+  .mark { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+          background: linear-gradient(135deg, var(--brand), var(--brand-2)); box-shadow: var(--shadow); }
+  .mark svg { width: 22px; height: 22px; }
+  .brand h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+  .brand p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .topbar .spacer { flex: 1; }
+  .env { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+         background: var(--panel); border: 1px solid var(--line); font-size: 12px; color: var(--muted); box-shadow: var(--shadow); }
+  .env .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+  .icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; cursor: pointer;
+              background: var(--panel); border: 1px solid var(--line); color: var(--ink); box-shadow: var(--shadow); }
+  .icon-btn:hover { border-color: var(--line-strong); }
+
+  /* ---------- layout ---------- */
+  main { display: grid; grid-template-columns: minmax(0, 1.1fr) 360px minmax(0, 1fr); gap: 22px;
+         padding: 6px 28px 32px; max-width: 1560px; margin: 0 auto; align-items: start; }
+  @media (max-width: 1180px) { main { grid-template-columns: 1fr; padding: 6px 16px 24px; } .topbar { padding: 16px; } }
+  @media (max-width: 560px) { .env span.txt { display: none; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+           box-shadow: var(--shadow); min-width: 0; overflow: hidden; }
+  .panel-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .panel-head .ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+                     background: var(--brand-soft); color: var(--brand); }
+  .panel-head h2 { margin: 0; font-size: 14.5px; font-weight: 600; }
+  .panel-head p { margin: 0; font-size: 12px; color: var(--muted); }
+  .panel-head .tag { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted); padding: 3px 8px;
+                     border: 1px solid var(--line); border-radius: 6px; white-space: nowrap; }
+  .panel-body { padding: 18px 20px 20px; }
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+                   color: var(--faint); margin: 0 0 10px; }
+
+  /* ---------- forms ---------- */
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 560px) { .fields { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin: 0 0 6px; }
+  input[type="text"], input:not([type]) {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+    color: var(--ink); font: inherit; transition: border-color .15s, box-shadow .15s, background .15s; }
+  input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); background: var(--panel); }
+  input.mono { font-family: var(--mono); font-size: 13px; }
+
+  .items { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .item { display: grid; grid-template-columns: 1fr auto 76px; gap: 14px; align-items: center; padding: 12px 14px;
+          border-bottom: 1px solid var(--line); transition: background .15s; }
+  .item:last-child { border-bottom: 0; }
+  .item.on { background: var(--brand-soft); }
+  .item .name { font-weight: 500; }
+  .item .unit { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .item .line { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .item:not(.on) .line { color: var(--faint); font-weight: 500; }
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 10px;
+             background: var(--panel); overflow: hidden; }
+  .stepper button { width: 32px; height: 32px; border: 0; background: transparent; color: var(--ink); cursor: pointer;
+                    font-size: 16px; display: grid; place-items: center; padding: 0; border-radius: 0; }
+  .stepper button:hover { background: var(--panel-2); }
+  .stepper input { width: 36px; height: 32px; border: 0; border-radius: 0; text-align: center; padding: 0; background: transparent;
+                   font: 600 14px Inter, system-ui, sans-serif; color: var(--ink); -moz-appearance: textfield; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .stepper input:focus { box-shadow: none; }
+
+  .total { display: flex; justify-content: space-between; align-items: end; margin: 18px 2px 16px; }
+  .total span { color: var(--muted); font-size: 13px; }
+  .total small { display: block; color: var(--faint); font-size: 11.5px; }
+  .total b { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+  button { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+  button.primary { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px 16px;
+                   font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2));
+                   box-shadow: 0 6px 18px -8px var(--brand); transition: transform .12s, box-shadow .12s, filter .12s; }
+  :root[data-theme="dark"] button.primary { color: #fff; }
+  button.primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+  button.primary:active:not(:disabled) { transform: translateY(0); }
+  button.ghost { width: 100%; background: var(--panel); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 500; }
+  button.ghost:hover { background: var(--panel-2); }
+  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+  /* ---------- session card ---------- */
+  .session { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; animation: rise .35s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .session-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--panel-2);
+                 border-bottom: 1px solid var(--line); }
+  .session-top .amt { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .session-top .amt small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+  .timeline { display: grid; grid-template-columns: repeat(4, 1fr); padding: 16px 16px 6px; position: relative; }
+  .tl { position: relative; text-align: center; font-size: 11.5px; color: var(--faint); }
+  .tl::before { content: ""; position: absolute; top: 11px; left: -50%; right: 50%; height: 2px; background: var(--line); }
+  .tl:first-child::before { display: none; }
+  .tl .node { position: relative; z-index: 1; width: 24px; height: 24px; margin: 0 auto 6px; border-radius: 50%;
+              display: grid; place-items: center; background: var(--panel); border: 2px solid var(--line-strong); }
+  .tl .node svg { width: 12px; height: 12px; stroke-width: 3; }
+  .tl.done { color: var(--muted); } .tl.done::before { background: var(--brand); }
+  .tl.done .node { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .tl.now { color: var(--ink); font-weight: 600; } .tl.now::before { background: var(--brand); }
+  .tl.now .node { border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  .tl.now .node::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); animation: pulse 1.4s infinite; }
+  .tl.now.ok .node { background: var(--ok); border-color: var(--ok); color: #fff; box-shadow: 0 0 0 4px var(--ok-bg); }
+  .tl.now.bad .node { background: var(--bad); border-color: var(--bad); color: #fff; box-shadow: 0 0 0 4px var(--bad-bg); }
+  .tl.now.warn .node { background: var(--warn); border-color: var(--warn); color: #fff; box-shadow: 0 0 0 4px var(--warn-bg); }
+  .tl.now.ok .node::after, .tl.now.bad .node::after, .tl.now.warn .node::after { display: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.7); } }
+
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; margin: 0; padding: 12px 16px 4px; font-size: 13px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  code, .code { font-family: var(--mono); font-size: 12.5px; }
+  .chip-code { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 6px; background: var(--panel-2);
+               border: 1px solid var(--line); font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .08em; cursor: pointer; }
+  .chip-code:hover { border-color: var(--line-strong); }
+  .chip-code svg { width: 12px; height: 12px; color: var(--faint); }
+  .note { font-size: 12px; color: var(--faint); }
+  .banner { display: flex; gap: 10px; align-items: flex-start; margin: 12px 16px 0; padding: 11px 12px; border-radius: 10px; font-size: 13px; }
+  .banner svg { margin-top: 2px; }
+  .banner.info { background: var(--info-bg); color: var(--info); }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .banner.warn { background: var(--warn-bg); color: var(--warn); }
+  .banner span { color: var(--ink); }
+  .session-actions { padding: 14px 16px 16px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px;
+          font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .s-PENDING, .s-IN_PROGRESS, .s-PROCESSING { background: var(--info-bg); color: var(--info); }
+  .s-IN_PROGRESS::before, .s-PROCESSING::before { animation: pulse 1.4s infinite; }
+  .s-APPROVED { background: var(--ok-bg); color: var(--ok); }
+  .s-DECLINED, .s-FAILED { background: var(--bad-bg); color: var(--bad); }
+  .s-CANCELLED, .s-EXPIRED { background: var(--warn-bg); color: var(--warn); }
+
+  /* ---------- phone ---------- */
+  .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .phone { width: 100%; max-width: 360px; padding: 12px; border-radius: 48px; position: relative;
+           background: linear-gradient(160deg, #2a2f38, #0c0e12 60%); box-shadow: var(--shadow-lg), inset 0 0 0 1.5px #3a404b; }
+  .device { border-radius: 38px; overflow: hidden; color: #eef2f7; position: relative;
+            background: radial-gradient(420px 260px at 50% -40px, #1b3358, transparent 70%), linear-gradient(180deg, #0c1220, #06080c);
+            padding: 12px 18px 22px; }
+  .island { width: 96px; height: 26px; border-radius: 20px; background: #000; margin: 0 auto; }
+  .statusbar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600;
+               margin: -22px 8px 14px; color: #dfe6ee; }
+  .statusbar .sig { display: flex; gap: 5px; align-items: center; }
+  .statusbar .sig i { display: inline-block; width: 3px; background: #dfe6ee; border-radius: 1px; }
+  .callhead { text-align: center; margin-bottom: 10px; }
+  .avatar { width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 8px; display: grid; place-items: center;
+            background: linear-gradient(135deg, #2f6fd1, #13a3b3); font-weight: 700; font-size: 15px; color: #fff;
+            box-shadow: 0 0 0 6px rgba(76,141,255,.12); }
+  .device.live .avatar { animation: ring 2.4s infinite; }
+  @keyframes ring { 0%,100% { box-shadow: 0 0 0 6px rgba(76,141,255,.12); } 50% { box-shadow: 0 0 0 12px rgba(76,141,255,.05); } }
+  .callhead .who { font-weight: 600; font-size: 15px; }
+  .callhead .state { font-size: 12px; color: #9fb0c3; display: flex; justify-content: center; gap: 8px; }
+  .callhead .state b { font-weight: 500; color: #cfe0f5; font-variant-numeric: tabular-nums; }
+  .step-chip { display: inline-block; min-height: 20px; margin-top: 6px; padding: 2px 10px; border-radius: 999px; font-size: 11px;
+               color: #a9c7ef; background: rgba(76,141,255,.14); text-transform: capitalize; }
+  .step-chip:empty { visibility: hidden; }
+
+  .transcript { height: 196px; overflow-y: auto; padding: 4px 2px; display: flex; flex-direction: column; gap: 6px;
+                scrollbar-width: thin; scrollbar-color: #2a3442 transparent; mask-image: linear-gradient(transparent, #000 14px); }
+  .transcript p { margin: 0; max-width: 86%; padding: 8px 11px; font-size: 12.5px; line-height: 1.4; border-radius: 14px;
+                  background: #1a2230; color: #e3e9f1; border-bottom-left-radius: 4px; align-self: flex-start; animation: rise .25s ease; }
+  .transcript p.you { align-self: flex-end; background: #2f6fd1; color: #fff; border-radius: 14px; border-bottom-right-radius: 4px;
+                      font-family: var(--mono); letter-spacing: .06em; }
+  .transcript p.sys { align-self: center; background: transparent; color: #8fa0b2; font-size: 11.5px; padding: 2px 8px; }
+  .transcript p.idle { align-self: center; background: transparent; color: #7b8a9b; text-align: center; margin-top: 60px; }
+
+  .entrybox { margin-top: 8px; padding: 10px 12px 8px; border-radius: 14px; background: rgba(255,255,255,.04);
+              border: 1px solid rgba(255,255,255,.07); transition: border-color .2s, background .2s; }
+  .entrybox.secure-on { border-color: rgba(95,208,138,.45); background: rgba(95,208,138,.06); }
+  .entry { font: 600 22px/1.2 var(--mono); letter-spacing: .14em; min-height: 28px; text-align: center; overflow-wrap: anywhere; color: #fff; }
+  .entry:empty::before { content: "Enter digits"; color: #4f5d6e; font: 500 13px/28px Inter, system-ui, sans-serif; letter-spacing: 0; }
+  .secure { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 11px; color: #5fd08a; min-height: 16px; }
+  .secure svg { width: 12px; height: 12px; }
+
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; margin: 16px 6px 0; }
+  .keys button { aspect-ratio: 1; max-height: 64px; justify-self: center; width: 100%; max-width: 64px; border-radius: 50%; padding: 0;
+                 display: flex; flex-direction: column; align-items: center; justify-content: center;
+                 background: rgba(255,255,255,.09); color: #fff; transition: background .1s, transform .08s; }
+  .keys button:hover { background: rgba(255,255,255,.14); }
+  .keys button:active, .keys button.hit { background: rgba(255,255,255,.28); transform: scale(.95); }
+  .keys b { font-size: 24px; font-weight: 500; line-height: 1; }
+  .keys small { font-size: 9px; font-weight: 600; letter-spacing: .16em; color: #9fb0c3; margin-top: 2px; min-height: 11px; }
+  .keys button.bs { background: transparent; } .keys button.bs svg { width: 24px; height: 24px; stroke-width: 1.8; }
+  .phone-actions { display: flex; justify-content: center; gap: 44px; margin-top: 16px; }
+  .round { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; color: #fff; padding: 0;
+           transition: transform .1s, filter .1s; position: relative; }
+  .round:hover { filter: brightness(1.1); } .round:active { transform: scale(.94); }
+  .round svg { width: 26px; height: 26px; }
+  .round.call { background: #22b35e; box-shadow: 0 8px 20px -8px #22b35e; }
+  .round.end { background: #e5484d; box-shadow: 0 8px 20px -8px #e5484d; }
+  .round.end svg { transform: rotate(135deg); }
+  .round-label { display: block; text-align: center; font-size: 10.5px; color: #8fa0b2; margin-top: 6px; }
+  .tts { display: inline-flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--muted); cursor: pointer; margin: 0; }
+  .switch { position: relative; width: 34px; height: 20px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line-strong); transition: background .2s; pointer-events: none; }
+  .switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+                        background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .2s; }
+  .switch input:checked + span { background: var(--brand); }
+  .switch input:checked + span::after { transform: translateX(14px); }
+  .switch input:focus-visible + span { box-shadow: 0 0 0 3px var(--brand-soft); }
+
+  /* ---------- dashboard ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .kpi { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel-2); position: relative; }
+  .kpi .k-ico { position: absolute; top: 12px; right: 12px; color: var(--faint); }
+  .kpi span { font-size: 12px; color: var(--muted); }
+  .kpi b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .bar { height: 4px; border-radius: 4px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .kpi .bar i { display: block; height: 100%; width: 0; background: var(--ok); border-radius: 4px; transition: width .6s ease; }
+  .tbl-wrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { color: var(--faint); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; background: var(--panel-2); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { transition: background .15s; } tbody tr:hover { background: var(--panel-2); }
+  .empty td { text-align: center; color: var(--faint); padding: 22px 12px; white-space: normal; }
+
+  .testcards { margin-top: 18px; display: grid; gap: 6px; }
+  .tc { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 9px 12px; text-align: left;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); }
+  .tc:hover { border-color: var(--brand); background: var(--brand-soft); }
+  .tc code { font-size: 12.5px; letter-spacing: .04em; }
+  .tc .res { font-size: 12px; font-weight: 500; }
+  .tc .res.ok { color: var(--ok); } .tc .res.bad { color: var(--bad); } .tc .res.warn { color: var(--warn); }
+  .hint { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 12px; color: var(--muted); }
+  .hint svg { margin-top: 2px; color: var(--faint); }
+  kbd { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line-strong);
+        border-bottom-width: 2px; background: var(--panel); color: var(--ink); }
+
+  /* ---------- toast ---------- */
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+           display: flex; gap: 10px; align-items: center; padding: 11px 16px; border-radius: 12px; max-width: calc(100vw - 32px);
+           background: var(--ink); color: var(--bg); font-size: 13px; box-shadow: var(--shadow-lg); transition: opacity .2s, transform .2s; z-index: 10; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--bad); color: #fff; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/><path d="M18 17v1a3 3 0 0 1-3 3h-3"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-del" viewBox="0 0 24 24"><path d="M21 5H8l-6 7 6 7h13a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-6 6M11 9l6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></symbol>
+  <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="mark" aria-hidden="true"><svg class="i"><use href="#i-lock"/></svg></div>
+  <div class="brand">
+    <h1>Wilmington 311 · Secure Pay</h1>
+    <p>Special trash pickup · agent-assisted DTMF payment</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="env"><i class="dot"></i><span class="txt">Local simulator · mock gateway</span></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle color theme"><svg class="i"><use href="#i-moon"/></svg></button>
+</header>
+
+<main>
+  <!-- ================= AGENT CONSOLE ================= -->
+  <section class="panel" id="agent">
+    <div class="panel-head">
+      <div class="ico"><svg class="i"><use href="#i-headset"/></svg></div>
+      <div><h2>Agent console</h2><p>RingCentral · live call</p></div>
+    </div>
+    <div class="panel-body">
+      <div class="fields">
+        <div><label for="ani">Caller ID (ANI)</label><input id="ani" class="mono" value="+1 302 555 0123"></div>
+        <div><label for="sr">Service request #</label><input id="sr" class="mono"></div>
+      </div>
+      <p class="section-label">Pickup items</p>
+      <div class="items" id="items"></div>
+      <div class="total">
+        <div><span>Total due</span><small>Priced on the server</small></div>
+        <b id="total">$0.00</b>
+      </div>
+      <button class="primary" id="takePayment"><svg class="i"><use href="#i-lock"/></svg>Transfer caller to secure payment</button>
+      <div id="sessionBox"></div>
+    </div>
+  </section>
+
+  <!-- ================= CALLER PHONE ================= -->
+  <section class="phone-wrap" aria-label="Caller phone">
+    <div class="phone">
+      <div class="device" id="device">
+        <div class="island"></div>
+        <div class="statusbar"><span id="clock">9:41</span><span class="sig"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i>&nbsp;5G</span></div>
+        <div class="callhead">
+          <div class="avatar">311</div>
+          <div class="who">Wilmington Secure Pay</div>
+          <div class="state"><span id="callState">Idle</span><b id="callTimer"></b></div>
+          <div class="step-chip" id="callStep"></div>
+        </div>
+        <div class="transcript" id="transcript" aria-live="polite"><p class="idle">Waiting for the agent to transfer the call…</p></div>
+        <div class="entrybox" id="entrybox">
+          <div class="entry" id="entry"></div>
+          <div class="secure" id="secure"></div>
+        </div>
+        <div class="keys" id="keys"></div>
+        <div class="phone-actions">
+          <div><button class="round call" id="send" aria-label="Send (#)"><svg class="i"><use href="#i-send"/></svg></button><span class="round-label">Send #</span></div>
+          <div><button class="round end" id="hangup" aria-label="Hang up"><svg class="i"><use href="#i-phone"/></svg></button><span class="round-label">Hang up</span></div>
+        </div>
+      </div>
+    </div>
+    <label class="tts"><span class="switch"><input type="checkbox" id="tts"><span></span></span>Speak prompts aloud</label>
+  </section>
+
+  <!-- ================= OPS DASHBOARD ================= -->
+  <section class="panel">
+    <div class="panel-head">
+      <div class="ico"><svg class="i"><use href="#i-chart"/></svg></div>
+      <div><h2>Operations</h2><p>Live · refreshes every 2s</p></div>
+    </div>
+    <div class="panel-body">
+      <div class="kpis">
+        <div class="kpi"><svg class="i k-ico"><use href="#i-layers"/></svg><span>Payment sessions</span><b id="k-total">0</b></div>
+        <div class="kpi"><svg class="i k-ico"><use href="#i-target"/></svg><span>Success rate</span><b id="k-rate">–</b><div class="bar"><i id="k-rate-bar"></i></div></div>
+        <div class="kpi"><svg class="i k-ico"><use href="#i-dollar"/></svg><span>Collected</span><b id="k-collected">$0.00</b></div>
+        <div class="kpi"><svg class="i k-ico"><use href="#i-clock"/></svg><span>Avg time in IVR</span><b id="k-ivr">–</b></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>SR #</th><th class="num">Amount</th><th>Status</th><th>Card</th><th class="num">Tries</th></tr></thead>
+          <tbody id="recent"></tbody>
+        </table>
+      </div>
+
+      <p class="section-label" style="margin-top:22px">Test cards <span style="text-transform:none;letter-spacing:0;font-weight:500">· any future expiry, e.g. <code>1229</code> · click to key in</span></p>
+      <div class="testcards" id="testcards">
+        <button class="tc" data-pan="4111111111111111"><code>4111 1111 1111 1111</code><span class="res ok">Approved</span></button>
+        <button class="tc" data-pan="5555555555554444"><code>5555 5555 5555 4444</code><span class="res ok">Approved</span></button>
+        <button class="tc" data-pan="378282246310005"><code>3782 822463 10005</code><span class="res ok">Approved · Amex, 4-digit CVV</span></button>
+        <button class="tc" data-pan="4000000000000002"><code>4000 0000 0000 0002</code><span class="res bad">Declined → retry</span></button>
+        <button class="tc" data-pan="4000000000009995"><code>4000 0000 0000 9995</code><span class="res bad">Insufficient funds</span></button>
+        <button class="tc" data-pan="4000000000000119"><code>4000 0000 0000 0119</code><span class="res warn">Timeout → manual review</span></button>
+      </div>
+      <p class="hint"><svg class="i"><use href="#i-info"/></svg><span>Press <kbd>*</kbd> then Send to return to the agent. Keyboard works too: digits, <kbd>Backspace</kbd>, <kbd>Enter</kbd> = #.</span></p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const money = (c) => `$${(c / 100).toFixed(2)}`;
+const icon = (name) => `<svg class="i"><use href="#i-${name}"/></svg>`;
+const TERMINAL = ["APPROVED", "DECLINED", "FAILED", "CANCELLED", "EXPIRED"];
+let fees = [], session = null, call = null, pollTimer = null, sensitive = false, buffer = "";
+let callStart = 0, callTick = null;
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json" },
+                                body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || data.detail || r.statusText);
+  return data;
+}
+
+let toastTimer;
+function toast(msg, err = false) {
+  const t = $("toast");
+  t.innerHTML = `${icon(err ? "alert" : "check")}<span></span>`;
+  t.querySelector("span").textContent = msg;
+  t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
+}
+
+// ---------------------------------------------------------------- theme
+(function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem("theme"); } catch {}
+  if (saved) document.documentElement.dataset.theme = saved;
+  const sync = () => {
+    const dark = document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    $("themeBtn").innerHTML = icon(dark ? "sun" : "moon");
+    return dark;
+  };
+  sync();
+  $("themeBtn").onclick = () => {
+    const next = sync() ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch {}
+    sync();
+  };
+})();
+
+// ---------------------------------------------------------------- agent
+function newSr() { $("sr").value = "SR-2026-" + String(Math.floor(100000 + Math.random() * 900000)); }
+
+async function loadFees() {
+  fees = (await api("GET", "/api/fees")).items;
+  $("items").innerHTML = fees.map((f, i) => `
+    <div class="item" data-code="${f.code}">
+      <div><span class="name">${f.label}</span><span class="unit">${money(f.unit_cents)} each</span></div>
+      <div class="stepper">
+        <button type="button" data-step="-1" aria-label="Decrease ${f.label}">−</button>
+        <input type="number" min="0" max="20" value="${i === 0 ? 2 : 0}" data-code="${f.code}" aria-label="${f.label} quantity">
+        <button type="button" data-step="1" aria-label="Increase ${f.label}">+</button>
+      </div>
+      <span class="line">$0.00</span>
+    </div>`).join("");
+  $("items").querySelectorAll("input").forEach((el) => el.addEventListener("input", updateTotal));
+  $("items").onclick = (e) => {
+    const b = e.target.closest("[data-step]"); if (!b) return;
+    const input = b.parentElement.querySelector("input");
+    input.value = Math.max(0, Math.min(20, (parseInt(input.value || "0", 10) || 0) + Number(b.dataset.step)));
+    updateTotal();
+  };
+  updateTotal();
+}
+
+function selectedItems() {
+  return [...$("items").querySelectorAll("input")]
+    .map((el) => ({ code: el.dataset.code, quantity: parseInt(el.value || "0", 10) }))
+    .filter((i) => i.quantity > 0);
+}
+
+function updateTotal() {
+  let total = 0;
+  $("items").querySelectorAll(".item").forEach((row) => {
+    const q = parseInt(row.querySelector("input").value || "0", 10) || 0;
+    const line = q * fees.find((f) => f.code === row.dataset.code).unit_cents;
+    total += line;
+    row.classList.toggle("on", q > 0);
+    row.querySelector(".line").textContent = money(line);
+  });
+  $("total").textContent = money(total);   // display only; the server re-prices
+}
+
+$("takePayment").onclick = async () => {
+  try {
+    const res = await api("POST", "/api/sessions", {
+      serviceRequestId: $("sr").value, items: selectedItems(), callerAni: $("ani").value,
+      telephonySessionId: "demo-telephony-session", partyId: "demo-caller-party",
+    });
+    session = res.session;
+    $("takePayment").disabled = true;
+    renderSession(res.transfer);
+    startPolling();
+    setTimeout(() => startCall($("ani").value), 600);   // simulates the RingCentral -> Connect transfer
+  } catch (e) { toast(e.message, true); }
+};
+
+const BANNERS = {
+  PENDING: ["info", "info", "Transferring caller to the secure payment line…"],
+  IN_PROGRESS: ["info", "lock", "Caller is in the secure payment line. Keypad entries are not audible to you."],
+  PROCESSING: ["info", "clock", "Authorizing payment…"],
+  APPROVED: ["ok", "check", "Payment approved. Confirm with the resident and finalize the service request."],
+  DECLINED: ["bad", "x", "Payment declined after all attempts. Offer another payment method."],
+  FAILED: ["bad", "alert", "Processor error - outcome uncertain. Do NOT retake payment; escalate for reconciliation."],
+  CANCELLED: ["warn", "alert", "Caller left the payment line without paying."],
+  EXPIRED: ["warn", "clock", "Payment session expired."],
+};
+
+function timeline(status) {
+  const idx = { PENDING: 0, IN_PROGRESS: 1, PROCESSING: 2 }[status] ?? 3;
+  const tone = BANNERS[status][0];
+  const last = idx === 3 ? status.charAt(0) + status.slice(1).toLowerCase() : "Result";
+  return ["Transfer", "Secure line", "Authorize", last].map((label, i) => {
+    const cls = i < idx ? "done" : i === idx ? `now ${idx === 3 ? tone : ""}` : "";
+    const glyph = i < idx ? icon("check") : i === idx && idx === 3 ? icon(tone === "ok" ? "check" : tone === "bad" ? "x" : "alert") : "";
+    return `<div class="tl ${cls}"><div class="node">${glyph}</div>${label}</div>`;
+  }).join("");
+}
+
+function renderSession(transfer) {
+  const s = session;
+  const done = TERMINAL.includes(s.status);
+  const [tone, ico, text] = BANNERS[s.status];
+  $("sessionBox").innerHTML = `
+    <div class="session">
+      <div class="session-top">
+        <div class="amt"><small>Payment session</small>${money(s.amountCents)}</div>
+        <span class="pill s-${s.status}">${s.status.replace("_", " ")}</span>
+      </div>
+      <div class="timeline">${timeline(s.status)}</div>
+      <dl class="kv">
+        <dt>Payment code</dt><dd><span class="chip-code" id="payCode" title="Copy">${s.paymentCode}${icon("copy")}</span> <span class="note">if caller ID doesn't match</span></dd>
+        ${transfer ? `<dt>Transfer</dt><dd>${transfer.target}${transfer.dryRun ? ` <span class="note">(dry run)</span>` : ""}</dd>` : ""}
+        ${s.cardLast4 ? `<dt>Card</dt><dd>${s.cardBrand || ""} ···· ${s.cardLast4}</dd>` : ""}
+        ${s.authCode ? `<dt>Auth code</dt><dd><code>${s.authCode}</code></dd>` : ""}
+        ${s.transactionId ? `<dt>Transaction</dt><dd><code>${s.transactionId}</code></dd>` : ""}
+        ${s.declineReason ? `<dt>Reason</dt><dd>${s.declineReason}</dd>` : ""}
+        <dt>Attempts</dt><dd>${s.attempts}</dd>
+      </dl>
+      <div class="banner ${tone}">${icon(ico)}<span>${text}</span></div>
+      <div class="session-actions">
+        ${done ? `<button class="ghost" id="nextCall">${s.status === "APPROVED" ? "Finalize request & next call" : "Next call"}</button>`
+               : `<button class="ghost" id="cancelSess">Cancel payment</button>`}
+      </div>
+    </div>`;
+  $("payCode").onclick = () => navigator.clipboard?.writeText(s.paymentCode).then(() => toast("Payment code copied"), () => {});
+  if (done) $("nextCall").onclick = resetAgent;
+  else $("cancelSess").onclick = () => api("POST", `/api/sessions/${s.sessionId}/cancel`).catch(() => {});
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const res = await api("GET", `/api/sessions/${session.sessionId}`);
+    const changed = res.session.status !== session.status || res.session.attempts !== session.attempts;
+    session = res.session;
+    if (changed) renderSession();
+    if (TERMINAL.includes(session.status)) clearInterval(pollTimer);
+  }, 1000);
+}
+
+function resetAgent() {
+  session = null; $("sessionBox").innerHTML = ""; $("takePayment").disabled = false; newSr();
+}
+
+// ---------------------------------------------------------------- phone
+const KEYS = [["1", ""], ["2", "ABC"], ["3", "DEF"], ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
+              ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"], ["*", ""], ["0", "+"], ["⌫", ""]];
+$("keys").innerHTML = KEYS.map(([k, sub]) => k === "⌫"
+  ? `<button class="bs" data-k="⌫" aria-label="Delete">${icon("del")}</button>`
+  : `<button data-k="${k}" aria-label="key ${k}"><b>${k}</b><small>${sub}</small></button>`).join("");
+$("keys").onclick = (e) => {
+  const k = e.target.closest("[data-k]")?.dataset.k; if (!k || !call) return;
+  if (k === "⌫") buffer = buffer.slice(0, -1); else buffer += k;
+  renderEntry();
+};
+function flashKey(k) {
+  const b = $("keys").querySelector(`[data-k="${k}"]`); if (!b) return;
+  b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120);
+}
+document.addEventListener("keydown", (e) => {
+  if (!call || e.target.tagName === "INPUT") return;
+  if (/^[0-9*]$/.test(e.key)) { buffer += e.key; flashKey(e.key); renderEntry(); }
+  else if (e.key === "Backspace") { buffer = buffer.slice(0, -1); flashKey("⌫"); renderEntry(); }
+  else if (e.key === "Enter" || e.key === "#") send();
+});
+
+$("testcards").onclick = (e) => {
+  const b = e.target.closest("[data-pan]"); if (!b) return;
+  if (!call) return toast("Start a payment first — the call isn't connected", true);
+  buffer = b.dataset.pan; renderEntry();
+};
+
+function renderEntry() { $("entry").textContent = sensitive ? "•".repeat(buffer.length) : buffer; }
+
+function say(text, who = "ivr") {
+  const p = document.createElement("p");
+  if (who !== "ivr") p.className = who;
+  p.textContent = text;
+  $("transcript").appendChild(p);
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+  if (who === "ivr" && $("tts").checked && "speechSynthesis" in window) {
+    speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  }
+}
+
+function setSecure(on) {
+  sensitive = on;
+  $("entrybox").classList.toggle("secure-on", on);
+  $("secure").innerHTML = on ? `${icon("lock")}Secure entry · masked, never recorded` : "";
+}
+
+function startTimer() {
+  callStart = Date.now(); clearInterval(callTick);
+  const tick = () => {
+    const s = Math.floor((Date.now() - callStart) / 1000);
+    $("callTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  tick(); callTick = setInterval(tick, 1000);
+  $("device").classList.add("live");
+}
+function stopTimer() { clearInterval(callTick); $("device").classList.remove("live"); }
+
+function applyTurn(turn) {
+  say(turn.prompt);
+  setSecure(turn.sensitive);
+  $("callStep").textContent = turn.step.replace("_", " ").toLowerCase();
+  if (turn.done) {
+    $("callState").textContent = turn.transferToAgent ? "Back to agent" : "Call ended";
+    say(`Outcome: ${turn.outcome}`, "sys");
+    call = null; stopTimer(); setSecure(false);
+  }
+}
+
+async function startCall(ani) {
+  $("transcript").innerHTML = ""; buffer = ""; renderEntry();
+  const res = await api("POST", "/ivr/calls", { ani });
+  call = res.callId; $("callState").textContent = "Secure line";
+  startTimer();
+  applyTurn(res.turn);
+}
+
+async function send() {
+  if (!call || !buffer) return;
+  const digits = buffer; buffer = ""; renderEntry();
+  say(sensitive ? "•".repeat(digits.length) + " #" : digits + " #", "you");
+  const res = await api("POST", `/ivr/calls/${call}/input`, { digits });
+  applyTurn(res.turn);
+}
+$("send").onclick = send;
+$("hangup").onclick = async () => {
+  if (!call) return;
+  await api("POST", `/ivr/calls/${call}/hangup`); call = null;
+  stopTimer(); setSecure(false);
+  $("callState").textContent = "Caller hung up"; say("Caller hung up", "sys");
+};
+
+(function clock() {
+  const d = new Date();
+  $("clock").textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/i, "");
+  setTimeout(clock, 15000);
+})();
+
+// ---------------------------------------------------------------- dashboard
+async function refreshMetrics() {
+  const m = await api("GET", "/api/metrics");
+  $("k-total").textContent = m.totalSessions;
+  $("k-rate").textContent = m.successRate == null ? "–" : `${Math.round(m.successRate * 100)}%`;
+  $("k-rate-bar").style.width = m.successRate == null ? "0" : `${Math.round(m.successRate * 100)}%`;
+  $("k-collected").textContent = money(m.collectedCents);
+  $("k-ivr").textContent = m.avgIvrSeconds == null ? "–" : `${m.avgIvrSeconds}s`;
+  $("recent").innerHTML = m.recent.length ? m.recent.map((s) => `
+    <tr><td><code>${s.serviceRequestId}</code></td><td class="num">${money(s.amountCents)}</td>
+        <td><span class="pill s-${s.status}">${s.status.replace("_", " ")}</span></td>
+        <td>${s.cardLast4 ? "···· " + s.cardLast4 : "–"}</td><td class="num">${s.attempts}</td></tr>`).join("")
+    : `<tr class="empty"><td colspan="5">No payment sessions yet. Start one from the agent console.</td></tr>`;
+}
+
+newSr(); loadFees(); refreshMetrics(); setInterval(refreshMetrics, 2000);
+</script>
+</body>
+</html>

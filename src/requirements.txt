@@ -1,0 +1,2 @@
+# Packaged into the Lambda functions by `sam build` (boto3 ships with the runtime).
+aws-encryption-sdk>=3.1,<5
